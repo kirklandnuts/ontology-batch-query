@@ -47,5 +47,5 @@ Accessing the definition from the first match in the list of matches:
 ```
 
 ## To-do
-- output results to .csv
+- output results to .csv (`output_batch_query()` and `__main__` functionality WIP)
 - consider unresolvable terms
