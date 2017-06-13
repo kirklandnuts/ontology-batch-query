@@ -1,0 +1,4 @@
+depth
+density
+temperature
+weight
