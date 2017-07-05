@@ -21,7 +21,7 @@ Both of these files are included (along with others) in the `examples` folder in
 
 #### Resolving a single term
 ```
->>> melanoma_matches = resolve_term('melanoma', [])
+>>> melanoma_matches = resolve_term('melanoma')
 ```
 
 The variable `melanoma_matches` contains a list of dictionaries, with each dictionary representing an individual resolution through an ontology on BioPortal. The BioPortal API limits each page response to containing no more than 50 matches. Resolve_term() handles the collection of the comprehensive set of matches with three lines of code (lines 79-81 in `batch_query.py`) that employ a while loop to iterate through all the available pages. Currently, I have commented out those three lines, limiting the amount of matches per searched term.
@@ -31,7 +31,7 @@ The variable `melanoma_matches` contains a list of dictionaries, with each dicti
 50
 ```
 
-To clarify, the variable `melanoma_matches` contains the list `collection` from within [the nested JSON object representing the response](http://data.bioontology.org/search?q=melanoma) with some additional information added to each element of the list (done in `resolve_term()`). NOTE: This function only captures non-naked terms (those with provided definitions).
+To clarify, the variable `melanoma_matches` contains the list `collection` from within [the nested JSON object representing the response](http://data.bioontology.org/search?q=melanoma) with some additional information added to each element of the list (done in `resolve_term()`).
 
 Accessing the definition from the first match in the list of matches:
 
@@ -43,7 +43,7 @@ Accessing the definition from the first match in the list of matches:
 #### Resolving a list of terms
 ```
 >>> terms = ['fish','bird','dog']
->>> resolved_terms = resolve_list(terms, [])
+>>> resolved_terms = resolve_list(terms)
 ```
 `resolve_list()` simply calls `resolve_term()` on each term in the list argument and returns them in a structured form. Here, `resolved_terms` is a list of lists of dictionaries, with each nested list representing a searched term and with each dictionary within that list representing a single match. Here it is visualized:
 
@@ -114,7 +114,6 @@ sys	0m1.973s
 
 ## To-do
 - extend ontology scope functionality to command line use
-	- also improve ontology scope flow such that user doesn't have to input empty list as argument to search among all ontologies
 - allow user inputted limit of matches per searched term
 - improve output file naming procedure
 	- currently outputs with the same filename every time (sorry)
