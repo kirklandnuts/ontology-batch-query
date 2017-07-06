@@ -1,4 +1,7 @@
-## -- HEADER --
+#!/usr/bin/env python3
+
+
+# -- HEADER --
 
 '''
 Last updated on 6/13/17
@@ -13,6 +16,7 @@ import csv
 import os
 import sys
 import time
+import argparse
 from warnings import warn
 
 
@@ -24,6 +28,7 @@ STORED_ONTOLOGIES = {}
 MIN_KEYS = ['prefLabel', 'definition', 'synonym', '@id']
 ALL_KEYS = ['searched_term','prefLabel', 'definition', 'synonym', 'ontology_acronym', 'ontology_name', 'last_updated', 'has_child', '@id']
 
+
 # -- FUNCTIONS --
 
 # precondition: The first argument is a path to a text file that contains a list of terms to be searched separated
@@ -32,11 +37,13 @@ ALL_KEYS = ['searched_term','prefLabel', 'definition', 'synonym', 'ontology_acro
 #   (CASE SENSITIVE) acronym associated with an ontology. This list of acronyms is the subset of ontologies from which
 #   the function will return matches. By default, this function considers all ontologies.
 # postcondition: Outputs a csv file containing matches from ontologies on Bioportal for the searched terms
-def output_batch_query(inputPath, outputPath, ontologies_param = None):
+def output_batch_query(directory, input_filename, output_filename, ontologies_param = None):
+    input_path = os.path.join(directory, input_filename)
+    output_path = os.path.join(directory, output_filename)
     if ontologies_param is None:
         ontologies_param = []
     # populating a list with terms from the input file
-    terms_file = open(inputPath, 'r')
+    terms_file = open(input_path, 'r')
     terms = []
     for line in terms_file:
         terms.append(line.strip())
@@ -44,7 +51,7 @@ def output_batch_query(inputPath, outputPath, ontologies_param = None):
     results_list = resolve_list(terms, ontologies_param) # list of lists each representing the matches of a term and
     #   containing dictionaries of which each represent a single match
     # creating output csv file
-    f = csv.writer(open(outputPath, 'w'))
+    f = csv.writer(open(output_path, 'w'))
     f.writerow(["searched_term", "matched_term", "definition", "synonyms", "ontology_acronym", "ontology_name",
                "last_updated", "has_child","URL"])
     # populating csv with matches
@@ -56,17 +63,16 @@ def output_batch_query(inputPath, outputPath, ontologies_param = None):
             f.writerow(record)
 
 
-
 # precondition: 1st argument is a list containing strings of terms to be resolved; The second argument is a list of
 #   strings, each string being a (CASE SENSITIVE) acronym associated with an ontology. This list of acronyms is the
 #   subset of ontologies from which the function will return matches.
 # postcondition: Returns a list of lists of dictionaries with each nested list representing a searched term and
 #   each dictionary within representing a match of the term
-def resolve_list(listOfTerms, ontologies_param = None):
+def resolve_list(list_of_terms, ontologies_param = None):
     if ontologies_param is None:
         ontologies_param = []
     search_results = []
-    for term in listOfTerms:
+    for term in list_of_terms:
         search_results.append(resolve_term(term, ontologies_param))
     return search_results
 
@@ -169,18 +175,31 @@ def get_json(url):
 #   file as the output directory.
 # postcondition: Calls output_batch_query() on the command line arguments
 if __name__ == '__main__':
-    if (len(sys.argv) > 1) or (len(sys.argv) < 2):
-        try:
-            inputFile = sys.argv[1]
-            outputFile = sys.argv[2]
-        except IndexError:
-            inputFile = sys.argv[1]
-            outputFile = os.path.dirname(inputFile) + 'resolved.csv'
-        output_batch_query(inputFile, outputFile)
-        print("\n\nThe terms in %s have been resolved through BioPortal.\nResults have been stored in %s/resolved_terms.csv.\n"
-              % (inputFile, outputFile))
+
+    parser = argparse.ArgumentParser(description='Resolve a list of terms by querying ontologies on BioPortal')
+
+    parser.add_argument('directory')
+    parser.add_argument('input_file')
+    parser.add_argument('-o', '--output_file', default=None,
+                        help = 'manually set a name for the output file (default = <input_file>_resolved.csv)')
+    parser.add_argument('-s', '--scope', nargs='+', default=None,
+                        help = 'designates a scope of ontologies for the program to query')
+
+    args = parser.parse_args()
+
+    directory = args.directory
+    input_file = args.input_file
+    if args.output_file:
+        output_file = args.output_file
     else:
-        print("\n\nUSAGE: python batch-query.py <input textfile> <*OPTIONAL* output directory>\n")
+        output_file = input_file[:-4] + '_resolved.csv'
+    scope = args.scope
+
+    print('your scope is: ', scope)
+    output_batch_query(directory, input_file, output_file, scope)
+    print("\n\nThe terms in %s/%s have been resolved through BioPortal.\nResults have been stored in %s/%s.\n"
+          % (directory, input_file, directory, output_file))
+
 
 
 # # -- TESTING --
