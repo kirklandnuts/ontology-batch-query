@@ -118,7 +118,7 @@ def resolve_term(term, ontologies_param = None):
                 match['ontology_name'] = ontology['name']
                 match['last_updated'] = ontology['date']
                 # adding key 'has_child' with boolean value representing whether or not the matched class has at least 1 child
-                time.sleep(.2) # to avoid overloading BioPortal's API; .1s is as low as I've set the delay so there is room for experimentation
+                time.sleep(.15) # to avoid overloading BioPortal's API; .1s is as low as I've set the delay so there is room for experimentation
                 match['has_child'] = get_json(match['links']['children'])['totalCount'] > 0
 
                 # inserting the newly completed match into the list of matches
@@ -189,15 +189,20 @@ if __name__ == '__main__':
 
     directory = args.directory
     input_file = args.input_file
+    time_stamp = time.strftime('%Y%m%dT%H%M%S')
+
     if args.output_file:
         output_file = args.output_file
     else:
-        output_file = input_file[:-4] + '_resolved.csv'
+        output_file = input_file[:-4] + '_resolved_' + time_stamp + '.csv'
     scope = args.scope
 
-    print('your scope is: ', scope)
+    if scope == None:
+        print('\nYou have not defined a scope; the program will query all ontologies.')
+    else:
+        print('\nYour scope is: ', scope)
     output_batch_query(directory, input_file, output_file, scope)
-    print("\n\nThe terms in %s/%s have been resolved through BioPortal.\nResults have been stored in %s/%s.\n"
+    print("\nThe terms in %s/%s have been resolved through BioPortal.\n\nResults have been stored in %s/%s.\n"
           % (directory, input_file, directory, output_file))
 
 
