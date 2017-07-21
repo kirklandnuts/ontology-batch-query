@@ -4,15 +4,43 @@ This is a module for batch querying ontologies using [BioPortal's API](http://da
 ## Usage
 
 ### Command Line functionality
+arguments:
 ```
-$ python3 batch_query.py /Users/timothy/Documents/ontology-batch-query/examples/measurements/measurements.txt
+./batch_query.py -h
+usage: batch_query.py [-h] [-o OUTPUT_FILE] [-s SCOPE [SCOPE ...]] [-n LIMIT]
+                      directory input_file
 
+Resolve a list of terms by querying ontologies on BioPortal
 
-The terms in /Users/timothy/Documents/ontology-batch-query/examples/taxon/taxon.txt have been resolved through BioPortal.
-Results have been stored in /Users/timothy/Documents/ontology-batch-query/examples/taxon/resolved_terms.csv.
+positional arguments:
+  directory
+  input_file
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT_FILE, --output_file OUTPUT_FILE
+                        manually set a name for the output file (default =
+                        <input_file>_resolved.csv)
+  -s SCOPE [SCOPE ...], --scope SCOPE [SCOPE ...]
+                        designates a scope of ontologies for the program to
+                        query
+  -n LIMIT, --limit LIMIT
+                        designates a numerical limit for number of matches to
+                        be returned for each query
 ```
-Both of these files are included (along with others) in the `examples` folder in this repository.
+Querying term in measurements.txt, only returning matches from SWEET and RCD ontologies (by default, the program returns matches from all ontologies) and with a numerical limit of 23 matches returned per query (by default, this limit is 25 (good balance between variety of matches returned and speed of query)).
+```
+./batch_query.py ./examples/measurements/ measurements.txt -s SWEET RCD -n 23
 
+Your scope is:  ['SWEET', 'RCD']
+
+The script will return a maximum of 23 matches per query.
+
+The terms in ./examples/measurements/measurements.txt have been resolved through BioPortal.
+
+Results have been stored in ./examples/measurements/measurements_resolved_20170721T130755.csv.
+```
+Both `measurements.txt` and `measurements_resolved_20170721T130755.csv` can be found in the `./examples/` directory of this repo.
 
 ### Importing functions for use in other script or in python console
 ```
@@ -24,14 +52,7 @@ Both of these files are included (along with others) in the `examples` folder in
 >>> melanoma_matches = resolve_term('melanoma')
 ```
 
-The variable `melanoma_matches` contains a list of dictionaries, with each dictionary representing an individual resolution through an ontology on BioPortal. The BioPortal API limits each page response to containing no more than 50 matches. Resolve_term() handles the collection of the comprehensive set of matches with three lines of code (lines 79-81 in `batch_query.py`) that employ a while loop to iterate through all the available pages. Currently, I have commented out those three lines, limiting the amount of matches per searched term.
-
-```
->>> len(melanoma_matches)
-50
-```
-
-To clarify, the variable `melanoma_matches` contains the list `collection` from within [the nested JSON object representing the response](http://data.bioontology.org/search?q=melanoma) with some additional information added to each element of the list (done in `resolve_term()`).
+The variable `melanoma_matches` contains a list of dictionaries, with each dictionary representing an individual resolution through an ontology on BioPortal. To clarify, the variable `melanoma_matches` contains the list `collection` from within [the nested JSON object representing the response](http://data.bioontology.org/search?q=melanoma) with some additional information added to each element of the list (done in `additional_elements()`).
 
 Accessing the definition from the first match in the list of matches:
 
@@ -53,13 +74,13 @@ Accessing the definition from the first match in the list of matches:
 		{<FIRST ELEMENT OF LIST RETURNED FROM resolve_term('fish')>}
 		{<SECOND ELEMENT OF LIST RETURNED FROM resolve_term('fish')>}
 		...
-		{<Kth ELEMENT OF LIST RETURNED FROM resolve_term('fish')>}
+		{<Nth ELEMENT OF LIST RETURNED FROM resolve_term('fish')>}
 	],
 	[
 		{<FIRST ELEMENT OF LIST RETURNED FROM resolve_term('bird')>}
 		{<SECOND ELEMENT OF LIST RETURNED FROM resolve_term('bird')>}
 		...
-		{<Mth ELEMENT OF LIST RETURNED FROM resolve_term('bird')>}
+		{<Nth ELEMENT OF LIST RETURNED FROM resolve_term('bird')>}
 	],
 	[
 		{<FIRST ELEMENT OF LIST RETURNED FROM resolve_term('dog')>}
@@ -70,55 +91,9 @@ Accessing the definition from the first match in the list of matches:
 ]
 ```
 
-where K, M, and N = the number of total matches returned by calling resolve_term() on 'fish', 'bird', and 'dog' respectively
+where N = the limit of matches returned per query
 
 
 ## Notes
-### Speed
-Time to resolve the 4 terms in `measurements.txt` (found in `examples` folder) when amount of matches is limited to 50:
-```
-$ time python3 batch_query.py /Users/timothy/Documents/ontology-batch-query/examples/measurements/measurements.txt
-
-
-The terms in /Users/timothy/Documents/ontology-batch-query/examples/measurements/measurements.txt have been resolved through BioPortal.
-Results have been stored in /Users/timothy/Documents/ontology-batch-query/examples/measurements/resolved_terms.csv.
-
-
-real	0m54.349s
-user	0m1.205s
-sys	0m0.202s
-```
-
-Here I do the same thing, this time without limiting the amount of matches per term, and had to interrupt the process before it could finish. I'm not sure how far it got, but it ran for a very long time before I stopped it:
-```
-$ time python3 batch_query.py /Users/timothy/Documents/ontology-batch-query/examples/measurements/measurements.txt
-^CTraceback (most recent call last):
-  File "batch_query.py", line 165, in <module>
-    output_batch_query(inputFile, outputDirectory)
-  File "batch_query.py", line 40, in output_batch_query
-    results_list = resolve_list(terms, ontologies_param) # list of lists each representing the matches of a term and
-  File "batch_query.py", line 63, in resolve_list
-    search_results.append(resolve_term(term, ontologies_param))
-  File "batch_query.py", line 102, in resolve_term
-    time.sleep(.1)
-KeyboardInterrupt
-
-real	37m16.905s
-user	0m12.848s
-sys	0m1.973s
-```
-
-
 ### Other Features
 [BioPortal's API documentation](http://data.bioontology.org/documentation) shows its other capabilities. Because I am not 100% sure about our ultimate goal with this script, I don't know what other features I can implement involving its extra capabilities. Please let me know if there is anything else I can add to this script/module to make it more useful.
-
-## To-do
-- extend ontology scope functionality to command line use
-- allow user inputted limit of matches per searched term
-- improve output file naming procedure
-	- currently outputs with the same filename every time (sorry)
-- consider unresolvable terms
-	- haven't run into one yet (haven't tried a wide variety of terms yet)
-- clean code
-	- standard naming convention
-	- handle key custom encoding within resolve_term()
