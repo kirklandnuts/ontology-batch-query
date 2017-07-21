@@ -26,7 +26,7 @@ REST_URL = 'http://data.bioontology.org'
 API_KEY = 'a2580539-56ae-420f-b558-3ab624285dbe'
 STORED_ONTOLOGIES = {}
 MIN_KEYS = ['prefLabel', 'definition', 'synonym', '@id']
-ALL_KEYS = ['searched_term','prefLabel', 'definition', 'synonym', 'ontology_acronym', 'ontology_name', 'last_updated', 'has_child', '@id']
+ALL_KEYS = ['searched_term','prefLabel', 'definition', 'synonym', 'ontology_acronym', 'ontology_name', 'last_updated', 'has_child', 'parents', '@id']
 
 
 # -- FUNCTIONS --
@@ -37,7 +37,7 @@ ALL_KEYS = ['searched_term','prefLabel', 'definition', 'synonym', 'ontology_acro
 #   (CASE SENSITIVE) acronym associated with an ontology. This list of acronyms is the subset of ontologies from which
 #   the function will return matches. By default, this function considers all ontologies.
 # postcondition: Outputs a csv file containing matches from ontologies on Bioportal for the searched terms
-def output_batch_query(directory, input_filename, output_filename, ontologies_param = None):
+def output_batch_query(directory, input_filename, output_filename, ontologies_param = None, n_matches = 25):
     input_path = os.path.join(directory, input_filename)
     output_path = os.path.join(directory, output_filename)
     if ontologies_param is None:
@@ -48,12 +48,12 @@ def output_batch_query(directory, input_filename, output_filename, ontologies_pa
     for line in terms_file:
         terms.append(line.strip())
     # use resolve_list() to resolve list of terms
-    results_list = resolve_list(terms, ontologies_param) # list of lists each representing the matches of a term and
+    results_list = resolve_list(terms, ontologies_param, n_matches) # list of lists each representing the matches of a term and
     #   containing dictionaries of which each represent a single match
     # creating output csv file
     f = csv.writer(open(output_path, 'w'))
     f.writerow(["searched_term", "matched_term", "definition", "synonyms", "ontology_acronym", "ontology_name",
-               "last_updated", "has_child","URL"])
+               "last_updated", "has_child", "parent(s)" ,"URL"])
     # populating csv with matches
     for term_matches in results_list: # iterating through list of lists; each iteration is list of all matches for a term
         for match in term_matches: # iterating through list of dictionaries each representing a match
@@ -68,12 +68,12 @@ def output_batch_query(directory, input_filename, output_filename, ontologies_pa
 #   subset of ontologies from which the function will return matches.
 # postcondition: Returns a list of lists of dictionaries with each nested list representing a searched term and
 #   each dictionary within representing a match of the term
-def resolve_list(list_of_terms, ontologies_param = None):
+def resolve_list(list_of_terms, ontologies_param = None, n_matches = 25):
     if ontologies_param is None:
         ontologies_param = []
     search_results = []
     for term in list_of_terms:
-        search_results.append(resolve_term(term, ontologies_param))
+        search_results.append(resolve_term(term, ontologies_param, n_matches))
     return search_results
 
 
@@ -81,57 +81,75 @@ def resolve_list(list_of_terms, ontologies_param = None):
 #   strings, each string being a (CASE SENSITIVE) acronym associated with an ontology. This list of acronyms is the
 #   subset of ontologies from which the function will return matches.
 # postcondition: Returns a list of dicts, each dict representing a match from the query
-def resolve_term(term, ontologies_param = None):
+def resolve_term(term, ontologies_param = None, n_matches = 25): # 25 numerical limit is arbitrary
     if ontologies_param is None:
         ontologies_param = []
     # generate query and use it to get the initial page of matches
     page = get_json(REST_URL + term_query_string(term, ontologies_param))
-    if page['totalCount'] == 0:
+    matches_provided = page['totalCount']
+    if matches_provided == 0: # handling unresolvable terms
         warn('WARNING: \'%s\' could not be resolved on BioPortal.' % term)
         return []
     else:
         # iterate through all pages, appending each one to a list of pages
-        pages = []
-        pages.append(page)
-        # COMMENT OUT THE NEXT 3 LINES TO LIMIT THE AMOUNT OF MATCHES TO 50 (max amount presented on the each page)
-        # while (page['nextPage'] != None):
-        #     page = get_json(page['links']['nextPage'])
-        #     pages.append(page)
+        pages = list()
+        if matches_provided < n_matches:  # ensuring that we don't exceed the number of matches provided by bioportal
+            n_matches = matches_provided
+        if n_matches >= 50:
+            n_pages = n_matches // 50  # number of full pages to iterate through
+            n_matches_last_page = n_matches % 50  # number of matches to retrieve from the last page
+            pages.append(page['collection'])  # first page
+            while len(pages) < n_pages:
+                page = get_json(page['links']['nextPage'])
+                pages.append(page['collection'])
+            if n_matches_last_page != 0:  # grabbing excess matches
+                page = get_json(page['links']['nextPage'])
+                pages.append(page['collection'][:n_matches_last_page])
+        else:
+            pages.append(page['collection'][:n_matches])
         # extract matches from each page in list of pages and inserts them into a list of matches, adding some additional
         #   information to each match ('ontology_acronym', 'ontology_name', 'last_updated', and 'has_child')
-        matches = []
+        complete_matches = []
         for page in pages:
-            for match in page['collection']:
-                # handling missing values by checking against hard-coded list of minimum keys (global var: MIN_KEYS)
-                for key in MIN_KEYS:
-                    if key not in list(match.keys()):
-                        match[key] = 'NA'
-                # adding additional information before inserting the match into a list of matches
-                # adding searched term
-                match['searched_term'] = term
-                # adding ontology info
-                ontology_acronym = match['links']['ontology'][39:]
-                if ontology_acronym not in STORED_ONTOLOGIES.keys():
-                    STORED_ONTOLOGIES[ontology_acronym] = ontology_info(ontology_acronym)
-                ontology = STORED_ONTOLOGIES[ontology_acronym]
-                match['ontology_acronym'] = ontology_acronym
-                match['ontology_name'] = ontology['name']
-                match['last_updated'] = ontology['date']
-                # adding key 'has_child' with boolean value representing whether or not the matched class has at least 1 child
-                time.sleep(.15) # to avoid overloading BioPortal's API; .1s is as low as I've set the delay so there is room for experimentation
-                match['has_child'] = get_json(match['links']['children'])['totalCount'] > 0
+            for match in page:
+                complete_match = additional_elements(match, term)
+                time.sleep(.15)  # waiting to prevent timing out
+                complete_matches.append(complete_match) # inserting the newly completed match into the list of matches
+        return complete_matches
 
-                # inserting the newly completed match into the list of matches
-                matches.append(match)
-        return matches
-    # # THE FOLLOWING IS OBSOLETE B/C: (1) we want to capture naked terms, and (2) this condition can be passed as a
-    # #     parameter in the query string
-    # # we only interested in non-naked terms (those which have definitions)
-    # kept_matches = []
-    # for match in all_matches:
-    #     if 'definition' in match.keys():
-    #         kept_matches.append(match)
-    # return(kept_matches)
+
+def additional_elements(match, term):
+    for key in MIN_KEYS:
+        if key not in list(match.keys()):
+            match[key] = 'NA'
+    # adding additional information before inserting the match into a list of matches
+    # adding searched term
+    match['searched_term'] = term
+    # adding ontology info
+    ontology_acronym = match['links']['ontology'][39:]
+    if ontology_acronym not in STORED_ONTOLOGIES.keys():
+        STORED_ONTOLOGIES[ontology_acronym] = ontology_info(ontology_acronym)
+    ontology = STORED_ONTOLOGIES[ontology_acronym]
+    match['ontology_acronym'] = ontology_acronym
+    match['ontology_name'] = ontology['name']
+    match['last_updated'] = ontology['date']
+    # adding key 'has_child' with boolean value representing whether or not the matched class has at least 1 child
+    match['has_child'] = get_json(match['links']['children'])['totalCount'] > 0
+    # adding key 'parent(s)' with string representation of any parent terms or 'NA' if none exist
+    match['parents'] = get_parents(match)
+    return match
+
+
+# takes a dictionary representing a single match from a query as an argument
+# returns string containing parent classes or 'NA' if none exist
+def get_parents(match):
+    parents = get_json(match['links']['parents'])
+    output = 'NA'
+    if len(parents) > 0:
+        output = []
+        for parent in parents:
+            output.append(parent['prefLabel'])
+    return output
 
 
 # precondition: the argument is a string representation of an acronym used to identify an ontology
@@ -184,6 +202,8 @@ if __name__ == '__main__':
                         help = 'manually set a name for the output file (default = <input_file>_resolved.csv)')
     parser.add_argument('-s', '--scope', nargs='+', default=None,
                         help = 'designates a scope of ontologies for the program to query')
+    parser.add_argument('-n', '--limit', default=25,
+                        help='designates a numerical limit')
 
     args = parser.parse_args()
 
@@ -196,12 +216,13 @@ if __name__ == '__main__':
     else:
         output_file = input_file[:-4] + '_resolved_' + time_stamp + '.csv'
     scope = args.scope
+    limit = int(args.limit)
 
     if scope == None:
         print('\nYou have not defined a scope; the program will query all ontologies.')
     else:
         print('\nYour scope is: ', scope)
-    output_batch_query(directory, input_file, output_file, scope)
+    output_batch_query(directory, input_file, output_file, scope, limit)
     print("\nThe terms in %s/%s have been resolved through BioPortal.\n\nResults have been stored in %s/%s.\n"
           % (directory, input_file, directory, output_file))
 
