@@ -113,7 +113,7 @@ def resolve_term(term, ontologies_param = None, n_matches = 25): # 25 numerical 
         for page in pages:
             for match in page:
                 complete_match = additional_elements(match, term)
-                time.sleep(.15)  # waiting to prevent timing out
+                time.sleep(.2)  # waiting to prevent timing out
                 complete_matches.append(complete_match) # inserting the newly completed match into the list of matches
         return complete_matches
 
