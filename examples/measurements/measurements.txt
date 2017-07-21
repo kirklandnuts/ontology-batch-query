@@ -1,4 +1,1 @@
-depth
 density
-temperature
-weight
