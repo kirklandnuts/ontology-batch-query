@@ -203,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--scope', nargs='+', default=None,
                         help = 'designates a scope of ontologies for the program to query')
     parser.add_argument('-n', '--limit', default=25,
-                        help='designates a numerical limit')
+                        help='designates a numerical limit for number of matches to be returned for each query')
 
     args = parser.parse_args()
 
