@@ -224,8 +224,8 @@ if __name__ == '__main__':
         print('\nYour scope is: ', scope)
     print('\nThe script will return a maximum of', limit, 'matches per query.')
     output_batch_query(directory, input_file, output_file, scope, limit)
-    print("\nThe terms in %s/%s have been resolved through BioPortal.\n\nResults have been stored in %s/%s.\n"
-          % (directory, input_file, directory, output_file))
+    print("\nThe terms in %s have been resolved through BioPortal.\n\nResults have been stored in %s.\n"
+          % (os.path.join(directory, input_file), os.path.join(directory, output_file)))
 
 
 
