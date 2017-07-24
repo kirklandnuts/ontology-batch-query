@@ -6,7 +6,7 @@ This is a module for batch querying ontologies using [BioPortal's API](http://da
 ### Command Line functionality
 arguments:
 ```
-./batch_query.py -h
+$ ./batch_query.py -h
 usage: batch_query.py [-h] [-o OUTPUT_FILE] [-s SCOPE [SCOPE ...]] [-n LIMIT]
                       directory input_file
 
@@ -30,7 +30,7 @@ optional arguments:
 ```
 Querying term in measurements.txt, only returning matches from SWEET and RCD ontologies (by default, the program returns matches from all ontologies) and with a numerical limit of 23 matches returned per query (by default, this limit is 25 (good balance between variety of matches returned and speed of query)).
 ```
-./batch_query.py ./examples/measurements/ measurements.txt -s SWEET RCD -n 23
+$ ./batch_query.py ./examples/measurements/ measurements.txt -s SWEET RCD -n 23
 
 Your scope is:  ['SWEET', 'RCD']
 
